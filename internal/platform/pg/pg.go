@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql драйвер "pgx"
@@ -40,6 +41,17 @@ func Open(ctx context.Context) (*DB, error) {
 // OpenDSN — как Open, но с явным DSN (нужен тестам: схема-на-тест через
 // параметр search_path в DSN).
 func OpenDSN(ctx context.Context, dsn string) (*DB, error) {
+	// Кластер приложений отдаёт соединения через пулер (Odyssey, transaction
+	// mode) — prepared statements там ломаются («prepared statement … does not
+	// exist»): пулер переключает бэкенды между транзакциями. simple_protocol
+	// отключает кэш подготовленных выражений pgx; безопасен и локально.
+	if !strings.Contains(dsn, "default_query_exec_mode=") {
+		sep := "?"
+		if strings.Contains(dsn, "?") {
+			sep = "&"
+		}
+		dsn += sep + "default_query_exec_mode=simple_protocol"
+	}
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("pg open: %w", err)
