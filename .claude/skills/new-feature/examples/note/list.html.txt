@@ -1,0 +1,17 @@
+{{define "content"}}
+	<!-- Форма создания. HTMX: POST возвращает фрагмент "note", вставляем в начало
+	     #notes (afterbegin), форму сбрасываем после ответа. -->
+	<div class="card mb-4 border border-base-300 bg-base-100">
+		<div class="card-body">
+			<form class="flex flex-col gap-3" hx-post="/notes" hx-target="#notes" hx-swap="afterbegin" hx-on::after-request="this.reset()">
+				<input class="input w-full" name="title" placeholder="Заголовок" maxlength="200" required autofocus>
+				<textarea class="textarea w-full" name="body" placeholder="Текст заметки (необязательно)" maxlength="10000" rows="3"></textarea>
+				<button class="btn btn-primary self-start" type="submit">Добавить</button>
+			</form>
+		</div>
+	</div>
+
+	<div id="notes" class="flex flex-col gap-3">
+		{{range .Notes}}{{template "note" .}}{{else}}<p class="py-8 text-center text-base-content/50" id="empty">Пока нет заметок. Добавьте первую.</p>{{end}}
+	</div>
+{{end}}

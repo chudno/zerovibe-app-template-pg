@@ -1,0 +1,12 @@
+{{define "verify"}}
+<h1>Подтверждение email</h1>
+{{if .Flash}}<p>{{.Flash}}</p>{{end}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<p>Не пришло письмо? Отправим ещё раз.</p>
+<form method="post" action="/resend-verification">
+	<label for="email">Email</label>
+	<input id="email" type="email" name="email" value="{{.Email}}" autocomplete="username" required>
+	<button type="submit">Отправить письмо повторно</button>
+</form>
+<p><a href="/login">Вернуться ко входу</a></p>
+{{end}}

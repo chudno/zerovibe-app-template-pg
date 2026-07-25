@@ -1,0 +1,15 @@
+{{define "note"}}<div class="card border border-base-300 bg-base-100" id="note-{{.ID}}">
+	<div class="card-body gap-2">
+		<div class="flex items-start justify-between gap-3">
+			<h3 class="card-title text-base">{{.Title}}</h3>
+			<!-- HTMX: DELETE возвращает пустоту, htmx убирает сам элемент (outerHTML). -->
+			<button class="btn btn-ghost btn-xs text-error"
+				hx-delete="/notes/{{.ID}}"
+				hx-target="#note-{{.ID}}"
+				hx-swap="outerHTML"
+				hx-confirm="Удалить заметку?">Удалить</button>
+		</div>
+		{{if .Body}}<p class="whitespace-pre-wrap text-sm text-base-content/80">{{.Body}}</p>{{end}}
+		{{if not .CreatedAt.IsZero}}<time class="text-xs text-base-content/50">{{.CreatedAt.Format "02.01.2006 15:04"}}</time>{{end}}
+	</div>
+</div>{{end}}

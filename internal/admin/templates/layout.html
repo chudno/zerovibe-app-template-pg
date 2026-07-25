@@ -1,0 +1,226 @@
+{{define "head"}}
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Панель управления</title>
+<!-- htmx: интерактив без перезагрузки страницы (раздаётся web-сервером приложения). -->
+<script src="/static/htmx.min.js"></script>
+<style>
+:root{
+  --background:#FFFFFF; --foreground:#09090B;
+  --muted:#F4F4F5; --muted-foreground:#71717A;
+  --border:#E4E4E7; --subtle:#FAFAFA;
+  --primary:#18181B; --primary-foreground:#FAFAFA;
+  --secondary:#F4F4F5; --secondary-foreground:#18181B;
+  --accent:#F4F4F5; --ring:#18181B;
+  --destructive:#DC2626; --destructive-foreground:#FFFFFF; --destructive-subtle:#FEF2F2;
+  --success:#16A34A; --success-foreground:#166534; --success-subtle:#DCFCE7;
+  --warning:#D97706; --warning-foreground:#92400E; --warning-subtle:#FEF3C7;
+  --info:#2563EB; --info-foreground:#1E40AF; --info-subtle:#DBEAFE;
+  --radius:6px; --radius-lg:8px; --radius-sm:4px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--foreground);background:var(--background);font-size:14px;line-height:1.45}
+a{color:inherit;text-decoration:none}
+.layout{display:flex;min-height:100vh}
+/* --- Sidebar --- */
+.sidebar{width:248px;flex-shrink:0;border-right:1px solid var(--border);background:var(--subtle);display:flex;flex-direction:column;padding:16px 12px}
+.sidebar__brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;padding:8px 12px 16px}
+.sidebar__nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.navitem{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);color:var(--muted-foreground);font-weight:500}
+.navitem svg{flex:none;opacity:.85}
+.navitem:hover{background:var(--accent);color:var(--foreground)}
+.navitem--active{background:var(--secondary);color:var(--secondary-foreground)}
+.navitem--active svg{opacity:1}
+.sidebar__user{border-top:1px solid var(--border);padding:12px 8px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted-foreground);font-size:13px}
+.sidebar__user form{margin:0}
+.sidebar__user .btn{display:inline-flex;align-items:center;gap:6px}
+/* --- Content --- */
+.content{flex:1;min-width:0;padding:28px 32px;max-width:100%}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.topbar h1{font-size:22px;font-weight:600}
+.crumbs{color:var(--muted-foreground);font-size:13px;margin-bottom:6px}
+/* --- Buttons --- */
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--radius);font-weight:500;font-size:14px;border:1px solid transparent;cursor:pointer;background:none;font-family:inherit}
+.btn--default{background:var(--primary);color:var(--primary-foreground)}
+.btn--default:hover{background:#000}
+.btn--outline{border-color:var(--border);background:var(--background);color:var(--foreground)}
+.btn--outline:hover{background:var(--accent)}
+.btn--ghost{color:var(--foreground)}
+.btn--ghost:hover{background:var(--accent)}
+.btn--destructive{background:var(--destructive);color:var(--destructive-foreground)}
+.btn--destructive:hover{background:#b91c1c}
+.btn--sm{height:32px;padding:0 10px;font-size:13px}
+.btn--icon{height:32px;width:32px;padding:0;justify-content:center;color:var(--muted-foreground)}
+.btn--icon:hover{background:var(--accent);color:var(--foreground)}
+/* --- Toolbar --- */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.search{flex:1;min-width:220px;position:relative;display:flex;align-items:center}
+.search .search__icon{position:absolute;left:11px;color:var(--muted-foreground);pointer-events:none;display:inline-flex}
+.search input{width:100%;height:36px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--background)}
+.btn svg{flex:none}
+.select{height:36px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius);background-color:var(--background);font-size:14px;font-family:inherit;color:var(--foreground)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px rgba(24,24,27,.08)}
+/* Своя стрелка у select (нативная прижата к краю) — chevron-down с отступом справа */
+select{
+  appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  background-image:url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2216%22%20height=%2216%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%2371717A%22%20stroke-width=%222.25%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22m6%209%206%206%206-6%22/%3E%3C/svg%3E');
+  background-repeat:no-repeat;background-position:right 11px center;background-size:16px;
+  padding-right:34px !important;cursor:pointer;
+}
+/* --- Table --- */
+.card{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--background)}
+.card:has(table){overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;font-weight:500;font-size:12px;color:var(--muted-foreground);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--subtle);white-space:nowrap}
+thead th a{display:inline-flex;align-items:center;gap:4px}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--subtle)}
+.checkcol{width:36px;text-align:center}
+.actions{white-space:nowrap;text-align:right;width:1%}
+.thumb{width:28px;height:28px;border-radius:var(--radius-sm);object-fit:cover;border:1px solid var(--border);background:var(--muted)}
+.tick{color:var(--success)}
+.tick--off{color:var(--muted-foreground)}
+/* --- Badge --- */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--secondary);color:var(--secondary-foreground)}
+.badge--success{background:var(--success-subtle);color:var(--success-foreground);border-color:transparent}
+.badge--warning{background:var(--warning-subtle);color:var(--warning-foreground);border-color:transparent}
+.badge--destructive{background:var(--destructive-subtle);color:var(--destructive);border-color:transparent}
+.badge--info{background:var(--info-subtle);color:var(--info-foreground);border-color:transparent}
+/* --- Bulk bar --- */
+.bulkbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--subtle);margin-bottom:12px}
+.bulkbar[hidden]{display:none}
+/* --- Pagination --- */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;color:var(--muted-foreground);font-size:13px}
+.pagination__pages{display:flex;gap:4px;align-items:center}
+/* --- Empty --- */
+.empty{text-align:center;padding:64px 24px;color:var(--muted-foreground)}
+.empty h2{font-size:16px;color:var(--foreground);margin-bottom:6px;font-weight:600}
+.empty p{margin-bottom:16px}
+/* --- Form --- */
+.formwrap{max-width:640px}
+.field{margin-bottom:18px}
+.field label{display:block;font-weight:500;margin-bottom:6px}
+.field .help{color:var(--muted-foreground);font-size:13px;margin-top:5px}
+.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{
+  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:inherit;background-color:var(--background)}
+.field textarea{min-height:96px;resize:vertical}
+.field--error input,.field--error textarea,.field--error select{border-color:var(--destructive)}
+.field__error{color:var(--destructive);font-size:13px;margin-top:6px}
+.row2{display:flex;gap:16px}
+.row2>.field{flex:1}
+/* switch — строка «подпись + описание слева, тумблер справа» (shadcn switch-with-label) */
+.field label.switchrow,.switchrow{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;
+  border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:0}
+.switchrow:hover{background:var(--subtle)}
+.switchrow__text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.switchrow__label{font-weight:500}
+.switchrow__help{font-size:13px;color:var(--muted-foreground)}
+.switchrow input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.switch__track{display:inline-block;flex:none;width:40px;height:22px;border-radius:999px;background:var(--border);position:relative;transition:background .15s}
+.switch__thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switchrow input:checked+.switch__track{background:var(--primary)}
+.switchrow input:checked+.switch__track .switch__thumb{left:20px}
+/* file */
+.filezone{border:1px dashed var(--border);border-radius:var(--radius);padding:16px;background:var(--subtle);display:flex;align-items:center;gap:12px}
+.filezone input{font-family:inherit;font-size:13px}
+.filepreview{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted-foreground)}
+.formactions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border);padding-top:18px;margin-top:8px}
+/* modal (htmx-форма создания/редактирования) */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;z-index:50;overflow:auto}
+.modal{background:var(--background);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 10px 40px rgba(0,0,0,.18);width:100%;max-width:640px}
+.modal__head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border)}
+.modal__head h2{font-size:17px;font-weight:600}
+.modal__body{padding:20px 22px}
+.htmx-indicator{opacity:0;transition:opacity .15s}
+.htmx-request .htmx-indicator,.htmx-request.htmx-indicator{opacity:1}
+
+/* --- Адаптив --- */
+@media (max-width:1024px){
+  .content{padding:20px 18px}
+}
+@media (max-width:768px){
+  /* Сайдбар → горизонтальная полоса сверху; страница в колонку */
+  .layout{flex-direction:column}
+  .sidebar{width:auto;flex-direction:row;align-items:center;gap:6px;padding:10px 12px;
+    border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}
+  .sidebar__brand{padding:0 8px 0 0;white-space:nowrap}
+  .sidebar__brand span{display:none}            /* на мобиле бренд — только иконка */
+  .sidebar__nav{flex-direction:row;gap:4px;flex:1}
+  .navitem{padding:8px 10px;white-space:nowrap}
+  .sidebar__user{border-top:none;padding:0;margin-left:auto;flex:none}
+  .sidebar__user>span{display:none}             /* «Администратор» прячем, оставляем «Выйти» */
+  .content{padding:16px 14px}
+  .topbar{flex-wrap:wrap;gap:10px}
+  .topbar h1{font-size:19px}
+  /* Тулбар переносится, поиск на всю ширину */
+  .toolbar{gap:8px}
+  .search{min-width:100%;order:-1}
+  /* Модалка почти на всю ширину */
+  .modal-overlay{padding:16px 10px}
+  .row2{flex-direction:column;gap:0}
+  .pagination{flex-wrap:wrap;gap:8px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar__brand">{{icon "layout-dashboard" 18}} <span>Панель управления</span></div>
+    <nav class="sidebar__nav" id="admin-nav">
+      {{range .Menu}}
+        <a class="navitem{{if .Active}} navitem--active{{end}}"
+           href="/admin/{{.Name}}"
+           hx-get="/admin/{{.Name}}" hx-target="#admin-content" hx-swap="innerHTML" hx-push-url="true">{{icon .Icon 17}} <span>{{.Title}}</span></a>
+      {{end}}
+    </nav>
+    <div class="sidebar__user">
+      <span>Администратор</span>
+      <button class="btn btn--ghost btn--sm" hx-post="/admin/logout" title="Выйти">{{icon "log-out" 15}} <span>Выйти</span></button>
+    </div>
+  </aside>
+  <main class="content">
+    <div id="admin-content">
+{{end}}
+
+{{define "foot"}}
+    </div>
+  </main>
+</div>
+<!-- Контейнер модалки форм: htmx грузит сюда форму создания/редактирования. -->
+<div id="modal"></div>
+<script>
+  // Закрытие модалки по клику на фон/крестик/«Отмена» (элементы с data-close).
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset && e.target.dataset.close !== undefined) {
+      document.getElementById('modal').innerHTML = '';
+    }
+  });
+  // После успешного создания/редактирования: модалка уже очищена пустым ответом,
+  // осталось перезагрузить секцию списка БЕЗ перезагрузки страницы.
+  document.body.addEventListener('refreshList', () => {
+    const lb = document.getElementById('listbody');
+    if (lb && lb.dataset.resource) {
+      htmx.ajax('GET', '/admin/' + lb.dataset.resource, { target: '#listbody', swap: 'innerHTML' });
+    }
+  });
+  // Ошибки мутаций (например, 422 «нельзя удалить последнего админа») — показать текст.
+  document.body.addEventListener('htmx:responseError', (e) => {
+    const x = e.detail.xhr;
+    if (x && x.status >= 400 && x.status < 500) { alert((x.responseText || '').trim() || 'Ошибка'); }
+  });
+  // Подсветка активного раздела при HTMX-навигации по сайдбару (контент подменяется,
+  // сам сайдбар нет — переключаем класс на клиенте, без перезагрузки).
+  document.getElementById('admin-nav').addEventListener('click', (e) => {
+    const item = e.target.closest('.navitem');
+    if (!item) return;
+    document.querySelectorAll('#admin-nav .navitem').forEach(n => n.classList.remove('navitem--active'));
+    item.classList.add('navitem--active');
+  });
+</script>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,17 @@
+{{define "register"}}
+<h1>Регистрация</h1>
+{{if .AllowSignup}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<form method="post" action="/register">
+	<label for="email">Email</label>
+	<input id="email" type="email" name="email" autocomplete="username" required autofocus>
+	<label for="password">Пароль (минимум 8 символов)</label>
+	<input id="password" type="password" name="password" autocomplete="new-password" minlength="8" required>
+	<button type="submit">Зарегистрироваться</button>
+</form>
+<p><a href="/login">Уже есть аккаунт? Войти</a></p>
+{{else}}
+<p>Регистрация сейчас закрыта. Обратитесь к администратору приложения.</p>
+<p><a href="/login">Войти</a></p>
+{{end}}
+{{end}}

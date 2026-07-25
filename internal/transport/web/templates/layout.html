@@ -1,0 +1,62 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- Заголовок вкладки: «Страница · Приложение». AppName — имя приложения,
+	     Title — конкретная страница. На главной Title пуст → только имя. -->
+	<title>{{if .Title}}{{.Title}} · {{end}}{{if .AppName}}{{.AppName}}{{else}}Приложение{{end}}</title>
+
+	<!-- htmx для интерактива (локально, без CDN — важно для работы в РФ). -->
+	<script src="/static/htmx.min.js"></script>
+
+	<!-- Минимальный базовый CSS (без внешних зависимостей). Оформление приложения
+	     пишется обычным CSS в static/app.css и подключается здесь при необходимости. -->
+	<style>
+		:root {
+			--zv-g1: #6366f1; --zv-g2: #8b5cf6; --zv-g3: #ec4899;
+			--ink: #18181b; --sub: #52525b; --line: #e4e4e7; --bg: #ffffff;
+		}
+		* { box-sizing: border-box; }
+		body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+			font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			color: var(--ink); background: var(--bg); line-height: 1.5; }
+		main { flex: 1; width: 100%; max-width: 48rem; margin: 0 auto; padding: 2.5rem 1rem; }
+		a { color: var(--zv-g2); }
+		/* Главная: логотип строго по центру экрана. */
+		.landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+	</style>
+</head>
+
+<!-- hx-boost перехватывает клики по ссылкам и сабмиты форм, грузит страницу в
+     фоне и подменяет <body> без полной перезагрузки (SPA-ощущение). -->
+<body hx-boost="true">
+	{{if eq .Page "landing"}}
+	<!-- Главная — только логотип по центру. -->
+	{{template "landing" .}}
+	{{else}}
+	<main>
+		{{if eq .Page "login"}}{{template "login" .}}
+		{{else if eq .Page "register"}}{{template "register" .}}
+		{{else if eq .Page "forgot"}}{{template "forgot" .}}
+		{{else if eq .Page "reset"}}{{template "reset" .}}
+		{{else if eq .Page "verify"}}{{template "verify" .}}
+		{{else if eq .Page "settings"}}{{template "settings" .}}
+		{{end}}
+	</main>
+	{{end}}
+</body>
+</html>{{end}}
+
+<!-- Логотип zerovibe: градиентная плашка с уголком-курсором + текст zerovibe_.
+     Самодостаточный (свой inline-CSS), без внешних зависимостей. -->
+{{define "zv-logo"}}<span style="display:inline-flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.7px;font-size:1.75rem">
+	<span style="position:relative;display:inline-flex;width:44px;height:44px;border-radius:15px;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--zv-g1) 15%,var(--zv-g2) 54%,var(--zv-g3) 85%)">
+		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+		<span style="position:absolute;bottom:8px;right:9px;width:7px;height:3px;border-radius:2px;background:#fff"></span>
+	</span>
+	<span><span style="color:var(--ink)">zero</span><span style="background:linear-gradient(0deg,var(--zv-g1),var(--zv-g2) 55%,var(--zv-g3));-webkit-background-clip:text;background-clip:text;color:transparent">vibe_</span></span>
+</span>{{end}}
+
+<!-- Главная: логотип строго по центру (горизонтально и вертикально). -->
+{{define "landing"}}<div class="landing">{{template "zv-logo" .}}</div>{{end}}

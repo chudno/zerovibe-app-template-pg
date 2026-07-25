@@ -1,0 +1,16 @@
+{{define "forgot"}}
+<h1>Восстановление пароля</h1>
+{{if .Flash}}
+<p>{{.Flash}}</p>
+<p><a href="/login">Вернуться ко входу</a></p>
+{{else}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<p>Укажите email — пришлём ссылку для сброса пароля.</p>
+<form method="post" action="/forgot">
+	<label for="email">Email</label>
+	<input id="email" type="email" name="email" autocomplete="username" required autofocus>
+	<button type="submit">Отправить ссылку</button>
+</form>
+<p><a href="/login">Вспомнили пароль? Войти</a></p>
+{{end}}
+{{end}}

@@ -1,0 +1,143 @@
+{{/* list — полная страница (прямой заход по URL раздела). */}}
+{{define "list"}}
+{{template "head" .}}
+  {{template "content" .}}
+{{template "foot" .}}
+{{end}}
+
+{{/* content — контент раздела (топбар + список) БЕЗ каркаса. Возвращается при
+     HTMX-навигации по сайдбару (подмена #admin-content), без перезагрузки страницы. */}}
+{{define "content"}}
+  <div class="topbar">
+    <h1>{{.Title}}</h1>
+    <button class="btn btn--default"
+            hx-get="/admin/{{.Resource}}/new" hx-target="#modal" hx-swap="innerHTML">{{icon "plus" 16}} <span>Создать</span></button>
+  </div>
+
+  <div id="listbody" data-resource="{{.Resource}}">
+    {{template "listbody" .}}
+  </div>
+{{end}}
+
+
+{{define "listbody"}}
+  {{/* Вся секция списка подменяется целиком при поиске/фильтре/сортировке/пагинации
+       (hx-get → #listbody). Внутри — тулбар, таблица, пагинация. */}}
+  <form class="toolbar"
+        hx-get="/admin/{{.Resource}}" hx-target="#listbody" hx-swap="innerHTML"
+        hx-trigger="submit, change, keyup from:input[name='q'] changed delay:300ms"
+        hx-push-url="true">
+    <div class="search">
+      <span class="search__icon">{{icon "search" 15}}</span>
+      <input type="text" name="q" value="{{.Search}}" placeholder="Поиск по разделу…" autocomplete="off">
+    </div>
+    {{range .Filters}}
+      <select class="select" name="f_{{.Name}}">
+        <option value="">{{.Label}}: все</option>
+        {{$sel := .Selected}}
+        {{range .Options}}<option value="{{.Value}}"{{if eq .Value $sel}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    {{end}}
+    <input type="hidden" name="sort" value="{{.SortBy}}">
+    <input type="hidden" name="dir" value="{{.SortDir}}">
+    <span class="htmx-indicator" style="color:var(--muted-foreground);font-size:13px">…</span>
+    <a class="btn btn--outline" href="/admin/{{.Resource}}/export?q={{.Search}}">{{icon "download" 15}} <span>Экспорт CSV</span></a>
+  </form>
+
+  <div class="bulkbar" id="bulkbar" hidden>
+    <span>Выбрано: <b id="bulkcount">0</b></span>
+    <button class="btn btn--destructive btn--sm" type="button" onclick="bulkDelete('{{.Resource}}')">Удалить выбранные</button>
+  </div>
+
+  {{if .Rows}}
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="checkcol"><input type="checkbox" onclick="toggleAll(this)"></th>
+          {{$res := .Resource}}{{$dir := .SortDir}}{{$sort := .SortBy}}{{$q := .Search}}
+          {{range .Columns}}
+            <th>
+              {{if .Sortable}}
+                <a href="#" style="cursor:pointer"
+                   hx-get="/admin/{{$res}}?sort={{.Name}}&dir={{if and (eq $sort .Name) (eq $dir "asc")}}desc{{else}}asc{{end}}&q={{$q}}"
+                   hx-target="#listbody" hx-swap="innerHTML" hx-push-url="true">
+                  {{.Label}}{{if .SortedAsc}} {{icon "arrow-up" 13}}{{else if .SortedDesc}} {{icon "arrow-down" 13}}{{end}}
+                </a>
+              {{else}}{{.Label}}{{end}}
+            </th>
+          {{end}}
+          <th class="actions">Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr id="row-{{$res}}-{{.ID}}">
+          <td class="checkcol"><input type="checkbox" class="rowcheck" value="{{.ID}}" onclick="updateBulk()"></td>
+          {{range .Cells}}
+            <td>
+              {{if .IsBool}}
+                {{if .Bool}}<span class="tick">{{icon "check" 16}}</span>{{else}}<span class="tick--off">{{icon "minus" 16}}</span>{{end}}
+              {{else if .IsFile}}
+                {{if .FileURL}}<img class="thumb" src="{{.FileURL}}" alt="{{.Display}}">{{else}}<span class="tick--off">{{icon "minus" 16}}</span>{{end}}
+              {{else if .Tone}}
+                <span class="badge badge--{{.Tone}}">{{.Display}}</span>
+              {{else}}{{.Display}}{{end}}
+            </td>
+          {{end}}
+          <td class="actions">
+            <button class="btn btn--icon" title="Изменить"
+                    hx-get="/admin/{{$res}}/{{.ID}}/edit" hx-target="#modal" hx-swap="innerHTML">{{icon "pencil" 16}}</button>
+            <button class="btn btn--icon" title="Удалить"
+                    hx-delete="/admin/{{$res}}/{{.ID}}"
+                    hx-target="#listbody" hx-swap="innerHTML"
+                    hx-confirm="Удалить запись? Действие необратимо.">{{icon "trash" 16}}</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <span>Показано {{.From}}–{{.To}} из {{.Total}}</span>
+    <div class="pagination__pages">
+      {{$res := .Resource}}{{$q := .Search}}{{$sort := .SortBy}}{{$dir := .SortDir}}
+      {{if .HasPrev}}<button class="btn btn--outline btn--sm"
+        hx-get="/admin/{{$res}}?page={{.PrevPage}}&q={{$q}}&sort={{$sort}}&dir={{$dir}}"
+        hx-target="#listbody" hx-swap="innerHTML" hx-push-url="true">{{icon "chevron-left" 14}} <span>Назад</span></button>{{end}}
+      <span>{{.Page}} / {{.Pages}}</span>
+      {{if .HasNext}}<button class="btn btn--outline btn--sm"
+        hx-get="/admin/{{$res}}?page={{.NextPage}}&q={{$q}}&sort={{$sort}}&dir={{$dir}}"
+        hx-target="#listbody" hx-swap="innerHTML" hx-push-url="true"><span>Вперёд</span> {{icon "chevron-right" 14}}</button>{{end}}
+    </div>
+  </div>
+  {{else}}
+  <div class="card">
+    <div class="empty">
+      <h2>Здесь пока ничего нет</h2>
+      <p>Создайте первую запись, чтобы она появилась в этом разделе.</p>
+      <button class="btn btn--default"
+              hx-get="/admin/{{.Resource}}/new" hx-target="#modal" hx-swap="innerHTML">{{icon "plus" 16}} <span>Создать</span></button>
+    </div>
+  </div>
+  {{end}}
+
+  <script>
+    function toggleAll(box){document.querySelectorAll('.rowcheck').forEach(c=>c.checked=box.checked);updateBulk();}
+    function updateBulk(){
+      const sel=[...document.querySelectorAll('.rowcheck:checked')];
+      const bc=document.getElementById('bulkcount'), bb=document.getElementById('bulkbar');
+      if(bc) bc.textContent=sel.length;
+      if(bb) bb.hidden=sel.length===0;
+    }
+    async function bulkDelete(res){
+      const sel=[...document.querySelectorAll('.rowcheck:checked')].map(c=>c.value);
+      if(!sel.length)return;
+      if(!confirm('Удалить выбранные ('+sel.length+')? Действие необратимо.'))return;
+      for(const id of sel){ await fetch('/admin/'+res+'/'+id,{method:'DELETE',headers:{'HX-Request':'true'}}); }
+      // перезагрузим секцию списка без перезагрузки страницы
+      htmx.ajax('GET','/admin/'+res,{target:'#listbody',swap:'innerHTML'});
+    }
+  </script>
+{{end}}

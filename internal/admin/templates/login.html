@@ -1,0 +1,64 @@
+{{/* login — вход в админку. Светлый shadcn-стиль, единый с самой админкой (та же
+     zinc-палитра). Отдельная страница (не часть приложения), но визуально согласована
+     с внутренними экранами панели управления. */}}
+{{define "login"}}
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход · Панель управления</title>
+<script src="/static/htmx.min.js"></script>
+<style>
+:root{
+  --background:#FFFFFF; --foreground:#09090B;
+  --muted:#F4F4F5; --muted-foreground:#71717A;
+  --border:#E4E4E7; --subtle:#FAFAFA;
+  --primary:#18181B; --primary-foreground:#FAFAFA;
+  --ring:#18181B; --destructive:#DC2626; --destructive-subtle:#FEF2F2;
+  --radius:6px; --radius-lg:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--foreground);
+  background:var(--subtle);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{width:100%;max-width:380px;background:var(--background);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:32px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.04)}
+.brand{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;margin-bottom:20px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground);
+  border:1px solid var(--border);border-radius:999px;padding:4px 10px;margin-bottom:16px}
+.dot{width:6px;height:6px;border-radius:50%;background:#16A34A}
+h1{font-size:20px;font-weight:600;margin-bottom:6px}
+.sub{color:var(--muted-foreground);font-size:14px;margin-bottom:22px}
+label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;margin-top:16px}
+label:first-of-type{margin-top:0}
+input{width:100%;height:40px;padding:0 12px;background:var(--background);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--foreground);font-size:14px;font-family:inherit}
+input:focus{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px rgba(24,24,27,.08)}
+.btn{width:100%;height:40px;margin-top:24px;background:var(--primary);color:var(--primary-foreground);
+  border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+.btn:hover{background:#000}
+.error{background:var(--destructive-subtle);color:var(--destructive);border:1px solid var(--destructive);
+  border-radius:var(--radius);padding:10px 13px;font-size:13px;margin-bottom:18px}
+.foot{margin-top:22px;text-align:center;font-size:13px}
+.foot a{color:var(--muted-foreground);text-decoration:none}
+.foot a:hover{color:var(--foreground)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge"><span class="dot"></span> Панель управления</span>
+    <h1>Вход</h1>
+    <p class="sub">Доступ только для администраторов приложения.</p>
+    {{if .Err}}<div class="error">{{.Err}}</div>{{end}}
+    <form hx-post="/admin/login" hx-target="this" hx-swap="none">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" value="{{.Email}}" autocomplete="username" required autofocus>
+      <label for="password">Пароль</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <button class="btn" type="submit">Войти</button>
+    </form>
+    <div class="foot"><a href="/">← Вернуться в приложение</a></div>
+  </div>
+</body>
+</html>
+{{end}}

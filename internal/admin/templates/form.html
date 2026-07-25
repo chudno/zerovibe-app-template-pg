@@ -1,0 +1,81 @@
+{{/* formdialog — форма в МОДАЛКЕ (htmx). Отправка через hx-post/hx-put: при успехе
+     сервер отдаёт обновлённый список в #listbody и шлёт HX-Trigger closeModal (модалка
+     закрывается). При ошибке валидации сервер возвращает эту же модалку с подписью. */}}
+{{define "formdialog"}}
+<div class="modal-overlay" data-close>
+  <div class="modal">
+    <div class="modal__head">
+      <h2>{{if .ID}}Редактирование{{else}}Новая запись{{end}} · {{.Title}}</h2>
+      <button class="btn btn--icon" type="button" data-close title="Закрыть">{{icon "x" 16}}</button>
+    </div>
+    <div class="modal__body">
+      <form hx-{{if .ID}}put{{else}}post{{end}}="/admin/{{.Resource}}{{if .ID}}/{{.ID}}{{end}}"
+            hx-target="#modal" hx-swap="innerHTML" enctype="multipart/form-data">
+        {{if .Err}}<div class="field__error" style="margin-bottom:16px">{{.Err}}</div>{{end}}
+        {{template "formfields" .}}
+        <div class="formactions">
+          <button class="btn btn--ghost" type="button" data-close>Отмена</button>
+          <button class="btn btn--default" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
+
+
+{{/* formfields — сами поля формы. */}}
+{{define "formfields"}}
+  {{range .Fields}}
+    <div class="field{{if .Required}} field--required{{end}}">
+      {{if eq (printf "%s" .Type) "bool"}}
+        <label class="switchrow">
+          <span class="switchrow__text">
+            <span class="switchrow__label">{{.Label}}</span>
+            {{if .Help}}<span class="switchrow__help">{{.Help}}</span>{{end}}
+          </span>
+          <input type="checkbox" name="{{.Name}}" value="true"{{if eq .Value "true"}} checked{{end}}>
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+        </label>
+
+      {{else if eq (printf "%s" .Type) "textarea"}}
+        <label for="f-{{.Name}}">{{.Label}}</label>
+        <textarea id="f-{{.Name}}" name="{{.Name}}"{{if .Required}} required{{end}}>{{.Value}}</textarea>
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+
+      {{else if eq (printf "%s" .Type) "number"}}
+        <label for="f-{{.Name}}">{{.Label}}</label>
+        <input type="number" id="f-{{.Name}}" name="{{.Name}}" value="{{.Value}}"{{if .Required}} required{{end}} step="any">
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+
+      {{else if eq (printf "%s" .Type) "date"}}
+        <label for="f-{{.Name}}">{{.Label}}</label>
+        <input type="date" id="f-{{.Name}}" name="{{.Name}}" value="{{.Value}}"{{if .Required}} required{{end}}>
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+
+      {{else if or (eq (printf "%s" .Type) "select") (eq (printf "%s" .Type) "relation")}}
+        <label for="f-{{.Name}}">{{.Label}}</label>
+        <select id="f-{{.Name}}" name="{{.Name}}"{{if .Required}} required{{end}}>
+          <option value="">— не выбрано —</option>
+          {{$val := .Value}}
+          {{range .Options}}<option value="{{.Value}}"{{if eq .Value $val}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+
+      {{else if eq (printf "%s" .Type) "file"}}
+        <label>{{.Label}}</label>
+        <div class="filezone">
+          <input type="file" name="{{.Name}}">
+          <input type="hidden" name="{{.Name}}_key" value="{{.Value}}">
+          {{if .FileURL}}<span class="filepreview"><img class="thumb" src="{{.FileURL}}" alt=""> Текущий файл</span>{{end}}
+        </div>
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+
+      {{else}}
+        <label for="f-{{.Name}}">{{.Label}}</label>
+        <input type="text" id="f-{{.Name}}" name="{{.Name}}" value="{{.Value}}"{{if .Required}} required{{end}}>
+        {{if .Help}}<div class="help">{{.Help}}</div>{{end}}
+      {{end}}
+    </div>
+  {{end}}
+{{end}}

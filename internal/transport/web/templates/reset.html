@@ -1,0 +1,16 @@
+{{define "reset"}}
+<h1>Новый пароль</h1>
+{{if .Token}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<p>Задайте новый пароль.</p>
+<form method="post" action="/reset">
+	<input type="hidden" name="token" value="{{.Token}}">
+	<label for="password">Новый пароль (минимум 8 символов)</label>
+	<input id="password" type="password" name="password" autocomplete="new-password" minlength="8" required autofocus>
+	<button type="submit">Сохранить пароль</button>
+</form>
+{{else}}
+<p>Ссылка недействительна. Запросите сброс заново.</p>
+<p><a href="/forgot">Восстановить пароль</a></p>
+{{end}}
+{{end}}

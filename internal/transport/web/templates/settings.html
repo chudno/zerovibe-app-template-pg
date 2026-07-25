@@ -1,0 +1,20 @@
+{{define "settings"}}
+<p>Настройки приложения. Секреты не отображаются — только признак «задано».</p>
+<table>
+	<thead><tr><th>Настройка</th><th>Значение</th></tr></thead>
+	<tbody>
+	{{range .Settings}}
+		<tr>
+			<td>{{.Title}} <span>({{.Key}})</span></td>
+			<td>
+				{{if eq .Kind "secret"}}
+					{{if .Set}}<span>задано</span>{{else}}<span>—</span>{{end}}
+				{{else}}
+					{{if .Value}}{{.Value}}{{else}}<span>—</span>{{end}}
+				{{end}}
+			</td>
+		</tr>
+	{{end}}
+	</tbody>
+</table>
+{{end}}

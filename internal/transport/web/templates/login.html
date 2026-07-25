@@ -1,0 +1,14 @@
+{{define "login"}}
+<h1>Вход</h1>
+{{if .Flash}}<p>{{.Flash}}</p>{{end}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<form method="post" action="/login">
+	<label for="email">Email</label>
+	<input id="email" type="email" name="email" autocomplete="username" required autofocus>
+	<label for="password">Пароль</label>
+	<input id="password" type="password" name="password" autocomplete="current-password" required>
+	<button type="submit">Войти</button>
+</form>
+<p><a href="/forgot">Забыли пароль?</a></p>
+{{if .AllowSignup}}<p><a href="/register">Регистрация</a></p>{{end}}
+{{end}}
