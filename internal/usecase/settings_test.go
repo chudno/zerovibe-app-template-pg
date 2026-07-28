@@ -82,13 +82,14 @@ func TestSettings_DefaultsWhenUnset(t *testing.T) {
 	if !b {
 		t.Error("allow_signup по умолчанию должен быть true")
 	}
-	// app_name по умолчанию "Zerovibe" (плейсхолдер эталона; агент/вайбкодер меняет).
+	// app_name по умолчанию "Приложение" — нейтральный плейсхолдер: бренд платформы
+	// в приложении пользователя недопустим (агент задаёт название из брифа).
 	s, err := svc.String(context.Background(), "app_name")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s != "Zerovibe" {
-		t.Errorf("app_name по умолчанию должен быть %q, получено %q", "Zerovibe", s)
+	if s != "Приложение" {
+		t.Errorf("app_name по умолчанию должен быть %q, получено %q", "Приложение", s)
 	}
 }
 

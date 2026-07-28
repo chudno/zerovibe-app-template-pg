@@ -43,7 +43,7 @@ type SettingDef struct {
 var settingRegistry = []SettingDef{
 	{Key: "allow_signup", Kind: SettingConfig, Type: SettingBool, Default: "true", Title: "Открытая регистрация"},
 	{Key: "require_email_verification", Kind: SettingConfig, Type: SettingBool, Default: "false", Title: "Требовать подтверждение почты"},
-	{Key: "app_name", Kind: SettingConfig, Type: SettingString, Default: "Zerovibe", Title: "Название приложения"},
+	{Key: "app_name", Kind: SettingConfig, Type: SettingString, Default: "Приложение", Title: "Название приложения"},
 }
 
 // SettingDefs возвращает копию реестра (для перечисления в API/UI).
