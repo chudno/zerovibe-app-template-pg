@@ -108,14 +108,15 @@ func TestLandingPublicForAnonymous(t *testing.T) {
 		t.Fatalf("гость на / (лендинг) должен получить 200, получен %d", rec.Code)
 	}
 	body := rec.Body.String()
-	// Главная — название приложения по центру (define "landing"/"app-logo").
-	if !strings.Contains(body, "app-logo") && !strings.Contains(body, `class="landing"`) {
-		t.Error("главная должна показывать название приложения по центру")
+	// Главная ПУСТОГО проекта — логотип платформы по центру (витрина Zerovibe,
+	// решение kostya 29 июля). ВАЖНО: это только заглушка — в рабочих экранах
+	// продукта брендинг платформы недопустим (агент заменяет лендинг в первой
+	// фазе «Код», см. skill design «Брендинг»).
+	if !strings.Contains(body, "vibe_") || !strings.Contains(body, `class="landing"`) {
+		t.Error("главная-заглушка должна показывать логотип платформы по центру")
 	}
-	// Техничка (стек) НЕ должна протекать конечному пользователю — и бренд
-	// платформы тоже: приложение — продукт ПОЛЬЗОВАТЕЛЯ, слово Zerovibe в нём
-	// недопустимо (жалобы тестеров 28 июля: логотип платформы в чужих проектах).
-	for _, leak := range []string{"DaisyUI", "HTMX", "PostgreSQL", "SQLite", "Эталонный шаблон", "Zerovibe", "zerovibe_", "vibe_"} {
+	// Техничка (стек) не должна протекать конечному пользователю.
+	for _, leak := range []string{"DaisyUI", "HTMX", "PostgreSQL", "SQLite", "Эталонный шаблон"} {
 		if strings.Contains(body, leak) {
 			t.Errorf("лендинг не должен содержать техничку: %q", leak)
 		}
