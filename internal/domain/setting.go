@@ -43,6 +43,12 @@ type SettingDef struct {
 var settingRegistry = []SettingDef{
 	{Key: "allow_signup", Kind: SettingConfig, Type: SettingBool, Default: "true", Title: "Открытая регистрация"},
 	{Key: "require_email_verification", Kind: SettingConfig, Type: SettingBool, Default: "false", Title: "Требовать подтверждение почты"},
+	// app_name — название ПРОДУКТА. ЕДИНСТВЕННАЯ точка, где оно задаётся в
+	// коде: поменяй Default в первой же фазе «Код» (из брифа) — шапка, лого,
+	// <title>, страницы входа/регистрации возьмут его сами через {{.AppName}}.
+	// НИКОГДА не хардкодь название в HTML-шаблонах и не заводи констант в Go —
+	// вторая точка истины уже приводила к «Приложению» в проде. Владелец может
+	// переименовать продукт в админке — это значение перекрывает Default.
 	{Key: "app_name", Kind: SettingConfig, Type: SettingString, Default: "Приложение", Title: "Название приложения"},
 }
 

@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"html/template"
+	"strings"
 	"testing"
 )
 
@@ -24,5 +26,32 @@ func parseTemplates() (*template.Template, error) {
 func TestTemplatesParse(t *testing.T) {
 	if _, err := parseTemplates(); err != nil {
 		t.Fatalf("шаблоны не парсятся (та же ошибка уронила бы страницу в рантайме): %v", err)
+	}
+}
+
+// TestAppNameSingleSource: название приложения приходит на страницы ТОЛЬКО из
+// настройки app_name ({{.AppName}}). Рендерим каждую страницу с подменённым
+// именем: если в HTML остался плейсхолдер «Приложение» — значит название
+// захардкожено в шаблоне (или забыт {{.AppName}}), и в проде владелец увидит
+// «Приложение» на входе/регистрации/в лого, как бы он ни переименовывал продукт.
+func TestAppNameSingleSource(t *testing.T) {
+	tpl, err := parseTemplates()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	pages := []string{"landing", "login", "register", "forgot", "reset", "settings", "verify"}
+	for _, page := range pages {
+		var buf bytes.Buffer
+		data := pageData{AppName: "ИмяИзНастройки", Page: page, AllowSignup: true}
+		if err := tpl.ExecuteTemplate(&buf, "layout", data); err != nil {
+			t.Fatalf("render %q: %v", page, err)
+		}
+		html := buf.String()
+		if strings.Contains(html, "Приложение") {
+			t.Errorf("страница %q содержит захардкоженный плейсхолдер «Приложение» — название берётся ТОЛЬКО из настройки app_name (internal/domain/setting.go), в шаблонах — {{.AppName}}", page)
+		}
+		if !strings.Contains(html, "ИмяИзНастройки") {
+			t.Errorf("страница %q не выводит {{.AppName}} — название приложения потеряно", page)
+		}
 	}
 }
