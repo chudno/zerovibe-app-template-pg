@@ -98,28 +98,17 @@ func TestProtectedRedirectsWhenAnonymous(t *testing.T) {
 	}
 }
 
-func TestLandingPublicForAnonymous(t *testing.T) {
+func TestRootIs404UntilAgentBuildsHomePage(t *testing.T) {
+	// Роута «GET /» в шаблоне НЕТ намеренно: 404 на «/» — сигнал платформенному
+	// прокси показать СВОЮ заглушку (анимированный логотип, appstub.go).
+	// Раньше здесь жил лендинг с логотипом платформы — брендинг платформы в
+	// коде пользователя неуместен, и правился он только для новых проектов.
 	h, _, _ := buildStack(t, false)
-	// Главная / — публичный лендинг, гость видит 200 (не редирект).
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("гость на / (лендинг) должен получить 200, получен %d", rec.Code)
-	}
-	body := rec.Body.String()
-	// Главная ПУСТОГО проекта — логотип платформы по центру (витрина Zerovibe,
-	// решение kostya 29 июля). ВАЖНО: это только заглушка — в рабочих экранах
-	// продукта брендинг платформы недопустим (агент заменяет лендинг в первой
-	// фазе «Код», см. skill design «Брендинг»).
-	if !strings.Contains(body, "vibe_") || !strings.Contains(body, `class="landing"`) {
-		t.Error("главная-заглушка должна показывать логотип платформы по центру")
-	}
-	// Техничка (стек) не должна протекать конечному пользователю.
-	for _, leak := range []string{"DaisyUI", "HTMX", "PostgreSQL", "SQLite", "Эталонный шаблон"} {
-		if strings.Contains(body, leak) {
-			t.Errorf("лендинг не должен содержать техничку: %q", leak)
-		}
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("«/» без главной должен отдавать 404 (признак для заглушки платформы), получен %d", rec.Code)
 	}
 }
 

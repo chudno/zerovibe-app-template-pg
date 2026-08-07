@@ -24,17 +24,12 @@
 		main { flex: 1; width: 100%; max-width: 48rem; margin: 0 auto; padding: 2.5rem 1rem; }
 		a { color: var(--zv-g2); }
 		/* Главная: логотип строго по центру экрана. */
-		.landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; }
 	</style>
 </head>
 
 <!-- hx-boost перехватывает клики по ссылкам и сабмиты форм, грузит страницу в
      фоне и подменяет <body> без полной перезагрузки (SPA-ощущение). -->
 <body hx-boost="true">
-	{{if eq .Page "landing"}}
-	<!-- Главная — только логотип по центру. -->
-	{{template "landing" .}}
-	{{else}}
 	<main>
 		{{if eq .Page "login"}}{{template "login" .}}
 		{{else if eq .Page "register"}}{{template "register" .}}
@@ -44,7 +39,6 @@
 		{{else if eq .Page "settings"}}{{template "settings" .}}
 		{{end}}
 	</main>
-	{{end}}
 </body>
 </html>{{end}}
 
@@ -53,18 +47,3 @@
      в фазе «Дизайн» логотип/шапку рисуй под бренд проекта и переноси сюда 1-в-1. -->
 {{define "app-logo"}}<span style="font-weight:800;letter-spacing:-.5px;font-size:1.6rem;color:var(--ink)">{{.AppName}}</span>{{end}}
 
-<!-- Логотип zerovibe — ТОЛЬКО для лендинга-заглушки пустого проекта (ниже).
-     Самодостаточный (свой inline-CSS), без внешних зависимостей. -->
-{{define "zv-logo"}}<span style="display:inline-flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.7px;font-size:1.75rem">
-	<span style="position:relative;display:inline-flex;width:44px;height:44px;border-radius:15px;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--zv-g1) 15%,var(--zv-g2) 54%,var(--zv-g3) 85%)">
-		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-		<span style="position:absolute;bottom:8px;right:9px;width:7px;height:3px;border-radius:2px;background:#fff"></span>
-	</span>
-	<span><span style="color:var(--ink)">zero</span><span style="background:linear-gradient(0deg,var(--zv-g1),var(--zv-g2) 55%,var(--zv-g3));-webkit-background-clip:text;background-clip:text;color:transparent">vibe_</span></span>
-</span>{{end}}
-
-<!-- Главная ПУСТОГО проекта: логотип платформы по центру — это витрина Zerovibe,
-     пока у приложения нет своих экранов (решение kostya 29 июля: лого вернуть).
-     В первой же фазе «Код» лендинг заменяется настоящей главной ПРОДУКТА —
-     и с этого момента брендинг платформы в приложении недопустим. -->
-{{define "landing"}}<div class="landing">{{template "zv-logo" .}}</div>{{end}}

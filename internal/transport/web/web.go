@@ -57,7 +57,7 @@ type Config struct {
 type pageData struct {
 	AppName     string // имя приложения (логотип/подвал); проставляется в renderPage
 	Title       string
-	Page        string // "landing" | "login" | "register" | "forgot" | "reset" | "settings" | "verify"
+	Page        string // "login" | "register" | "forgot" | "reset" | "settings" | "verify"
 	User        *domain.User
 	Settings    []usecase.SettingView
 	Flash       string // нейтральное сообщение (forgot/reset/verify)
@@ -147,7 +147,6 @@ func (s *Server) Routes() http.Handler {
 	}
 
 	// Публичная главная — логотип (без авторизации).
-	mux.HandleFunc("GET /", s.handleLanding)
 
 	// Админ (настройки приложения).
 	mux.HandleFunc("GET /admin/settings", s.requireRole(domain.RoleAdmin, s.handleSettingsPage))
@@ -244,16 +243,12 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // --- хендлеры: страницы ---
 
-// handleLanding — публичная главная (логотип по центру). Точный роут "GET /";
-// ServeMux уводит неизвестные пути в NotFound автоматически, ручная проверка пути
-// не нужна.
-func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	s.renderPage(w, r, pageData{Page: "landing", User: currentUser(r)})
-}
+// Роута «GET /» в шаблоне НЕТ намеренно: пока агент не сделал главную,
+// приложение отвечает на «/» честным 404 — по нему платформенный прокси
+// показывает СВОЮ заглушку (анимированный логотип) и сам убирает её, когда
+// главная появляется. Логотип платформы в коде пользователя неуместен —
+// раньше он жил здесь лендингом, теперь это состояние закрывает платформа
+// (см. platform appstub.go, коммит Алины 7 авг 2026).
 
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if u := currentUser(r); u != nil {

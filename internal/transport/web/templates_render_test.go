@@ -39,7 +39,7 @@ func TestAppNameSingleSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	pages := []string{"landing", "login", "register", "forgot", "reset", "settings", "verify"}
+	pages := []string{"login", "register", "forgot", "reset", "settings", "verify"}
 	for _, page := range pages {
 		var buf bytes.Buffer
 		data := pageData{AppName: "ИмяИзНастройки", Page: page, AllowSignup: true}
