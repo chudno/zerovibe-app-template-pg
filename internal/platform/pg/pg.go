@@ -56,11 +56,19 @@ func OpenDSN(ctx context.Context, dsn string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pg open: %w", err)
 	}
-	// Кластер приложений маленький, соединения дефицитны (пулер на стороне
-	// сервера) — держим скромный пул.
-	db.SetMaxOpenConns(4)
-	db.SetMaxIdleConns(2)
-	db.SetConnMaxIdleTime(time.Minute)
+	// Соединения дефицитны: у роли приложения лимит ~10 на ВСЕ инстансы разом,
+	// а серверлесс поднимает инстанс на каждый параллельный запрос. Пул 4
+	// означал, что уже трёх инстансов хватает выжечь квоту («too many
+	// connections for role», прод 19 авг 2026).
+	//
+	// Инстанс обслуживает один запрос за раз, поэтому двух соединений ему
+	// достаточно, а квоты хватает на пятерых.
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(1)
+	// Замороженный инстанс не должен держать соединение вечно: отпускаем
+	// простаивающее быстро, чтобы место досталось живым.
+	db.SetConnMaxIdleTime(30 * time.Second)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
