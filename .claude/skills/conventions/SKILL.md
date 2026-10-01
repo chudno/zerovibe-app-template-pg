@@ -216,6 +216,79 @@ cmd/server/            composition root: склейка слоёв.
   семантическая, интерактив — HTMX (см. выше). Встроенная админка (`internal/admin`) —
   исключение: у неё собственные стили, её не трогаем.
 
+## Поле телефона — ВСЕГДА маска под российский номер
+
+Любое поле телефона (заявка, регистрация, профиль, контакты — и в мокапе, и в
+коде) делается с маской `+7 (___) ___-__-__`. Без исключений и без вопросов
+человеку: это стандарт, о котором он не обязан просить.
+
+Разметка:
+
+```html
+<input type="tel" name="phone" data-phone inputmode="tel" autocomplete="tel"
+       placeholder="+7 (___) ___-__-__" required>
+```
+
+Скрипт — один раз на приложение (`static/app.js` или перед `</body>` в общем
+макете; в мокапе — в том же файле). Делегирование на `document`, поэтому
+работает и для форм, пришедших через HTMX. Копируй как есть:
+
+```html
+<script>
+(function () {
+  function fmt(d) {
+    var s = '+7';
+    if (d.length > 1) s += ' (' + d.slice(1, 4);
+    if (d.length >= 4) s += ') ' + d.slice(4, 7);
+    if (d.length >= 7) s += '-' + d.slice(7, 9);
+    if (d.length >= 9) s += '-' + d.slice(9, 11);
+    return s;
+  }
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (!el.matches || !el.matches('input[data-phone]')) return;
+    var d = el.value.replace(/\D/g, '');
+    // Стёрли скобку или дефис — стираем и цифру перед ним, иначе курсор застрянет.
+    if (e.inputType && e.inputType.indexOf('delete') === 0 && d === (el.dataset.d || '')) d = d.slice(0, -1);
+    if (d[0] === '8') d = '7' + d.slice(1);
+    if (d && d[0] !== '7') d = '7' + d;
+    d = d.slice(0, 11);
+    el.dataset.d = d;
+    el.value = d ? fmt(d) : '';
+  });
+  document.addEventListener('focusin', function (e) {
+    var el = e.target;
+    if (el.matches && el.matches('input[data-phone]') && !el.value) el.value = '+7 (';
+  });
+})();
+</script>
+```
+
+На сервере номер приводится к виду `+7XXXXXXXXXX` и проверяется — маске в
+браузере не доверяем:
+
+```go
+// NormalizePhone: «+7 (916) 123-45-67», «89161234567», «9161234567» → «+79161234567».
+func NormalizePhone(s string) (string, bool) {
+	d := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, s)
+	if len(d) == 11 && (d[0] == '7' || d[0] == '8') {
+		return "+7" + d[1:], true
+	}
+	if len(d) == 10 {
+		return "+7" + d, true
+	}
+	return "", false
+}
+```
+
+Не номер — форма возвращается с понятной ошибкой у поля («Проверьте номер
+телефона»). В мокапе показывай заполненное поле: `+7 (916) 123-45-67`.
+
 ## Ошибки
 
 - Доменные ошибки — типы в `domain` (`ErrValidation`, `ErrNotFound`, ...).
