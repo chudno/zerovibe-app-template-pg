@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"testing"
@@ -38,6 +39,15 @@ func adminDSN() string {
 // проде (роль app_<projectID>, лимит 10).
 func seedRole(t *testing.T) string {
 	t.Helper()
+	// Без тестовой базы — пропуск, как у остальных интеграционных тестов: в
+	// поде агента её нет, и красный go test ./... останавливал публикацию.
+	if os.Getenv("TEST_DATABASE_URL") == "" {
+		c, err := net.DialTimeout("tcp", "localhost:55433", 300*time.Millisecond)
+		if err != nil {
+			t.Skip("нет тестового Postgres (localhost:55433 или TEST_DATABASE_URL) — пропускаю интеграционный тест")
+		}
+		_ = c.Close()
+	}
 	admin, err := sql.Open("pgx", adminDSN())
 	if err != nil {
 		t.Fatalf("админ-подключение: %v", err)
