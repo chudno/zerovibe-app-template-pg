@@ -50,8 +50,8 @@ func TestPathParams(t *testing.T) {
 
 func TestSpecificityAndSubtree(t *testing.T) {
 	m := New()
-	m.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })          // всё
-	m.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(206) })   // подветка
+	m.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })           // всё
+	m.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(206) })    // подветка
 	m.HandleFunc("GET /notes/{id}", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(210) }) //nolint
 	m.HandleFunc("GET /notes/new", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(211) })
 
@@ -79,6 +79,21 @@ func TestHandleWithoutMethod(t *testing.T) {
 	for _, meth := range []string{"GET", "POST", "PUT"} {
 		if c := serve(m, meth, "/any").Code; c != 200 {
 			t.Fatalf("%s /any → %d", meth, c)
+		}
+	}
+}
+
+// «GET /{$}» — только корень: так агент по привычке из net/http регистрирует
+// главную, и без поддержки «{$}» она отдавала 404.
+func TestExactRootPattern(t *testing.T) {
+	m := New()
+	m.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	m.HandleFunc("GET /notes/{$}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusAccepted) })
+	for path, want := range map[string]int{"/": http.StatusOK, "/other": http.StatusNotFound, "/notes/": http.StatusAccepted, "/notes/1": http.StatusNotFound} {
+		rec := httptest.NewRecorder()
+		m.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != want {
+			t.Errorf("%s: код %d, ждали %d", path, rec.Code, want)
 		}
 	}
 }

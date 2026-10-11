@@ -43,7 +43,13 @@ func (m *Mux) Handle(pattern string, h http.Handler) {
 		method = pattern[:i]
 		path = strings.TrimLeft(pattern[i:], " ")
 	}
-	subtree := strings.HasSuffix(path, "/")
+	// «{$}» в конце — точное совпадение, как в net/http: «GET /{$}» — только
+	// корень, а не вся подветка (иначе главная отдаёт 404).
+	exact := strings.HasSuffix(path, "/{$}")
+	if exact {
+		path = strings.TrimSuffix(path, "{$}")
+	}
+	subtree := strings.HasSuffix(path, "/") && !exact
 	trimmed := strings.Trim(path, "/")
 	var segs []string
 	if trimmed != "" {
