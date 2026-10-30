@@ -5,7 +5,7 @@
 # деплое) — контейнер полностью stateless, volume не нужен.
 
 # --- build ---
-FROM golang:1.25-alpine AS build
+FROM golang:1.26-alpine AS build
 WORKDIR /src
 
 # Кэш зависимостей отдельным слоем.
