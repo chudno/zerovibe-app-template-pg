@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -563,6 +564,9 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		w.Header().Set("Retry-After", strconv.Itoa(int(limited.RetryAfter.Seconds())))
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 	default:
+		// Без записи причина 500 не видна ни в логах приложения, ни владельцу.
+		// Путь — без query: в нём бывают одноразовые токены.
+		slog.Error("запрос не выполнен", "method", r.Method, "path", r.URL.Path, "err", err)
 		http.Error(w, "внутренняя ошибка", http.StatusInternalServerError)
 	}
 }
