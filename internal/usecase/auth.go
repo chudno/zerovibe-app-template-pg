@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -69,9 +70,11 @@ type Mailer interface {
 }
 
 // RateLimiter — порт оконных счётчиков. Allow атомарно учитывает попытку по ключу и
-// сообщает, не превышен ли лимит (и сколько ждать до сброса окна).
+// сообщает, не превышен ли лимит (и сколько ждать до сброса окна). Reset обнуляет
+// счётчик ключа; если счётчика нет — это не ошибка.
 type RateLimiter interface {
 	Allow(ctx context.Context, key string, limit int, window time.Duration, now time.Time) (allowed bool, retryAfter time.Duration, err error)
+	Reset(ctx context.Context, key string) error
 }
 
 // PasswordHasher — порт хеширования пароля (чтобы тесты не платили цену bcrypt-cost).
@@ -208,9 +211,12 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (dom
 }
 
 // Login проверяет креды и создаёт сессию. rateKey формирует транспорт (email+IP).
+// Лимит расходуют только неудачные попытки: успешный вход сбрасывает счётчик.
+// Пока ключ заблокирован, вход отклоняется до проверки пароля — даже верного.
 func (s *AuthService) Login(ctx context.Context, email, password, rateKey string) (domain.Session, error) {
 	now := s.now()
-	allowed, retry, err := s.rl.Allow(ctx, "login:"+rateKey, s.cfg.LoginRateLimit.Limit, s.cfg.LoginRateLimit.Window, now)
+	limitKey := "login:" + rateKey
+	allowed, retry, err := s.rl.Allow(ctx, limitKey, s.cfg.LoginRateLimit.Limit, s.cfg.LoginRateLimit.Window, now)
 	if err != nil {
 		return domain.Session{}, err
 	}
@@ -246,6 +252,10 @@ func (s *AuthService) Login(ctx context.Context, email, password, rateKey string
 	sess := domain.Session{Token: token, UserID: u.ID, CreatedAt: now, ExpiresAt: now.Add(s.cfg.SessionTTL)}
 	if err := s.sessions.Create(ctx, sess); err != nil {
 		return domain.Session{}, err
+	}
+	// Вход удался — попытка не считается. Сбой сброса не должен ломать вход.
+	if err := s.rl.Reset(ctx, limitKey); err != nil {
+		slog.Warn("не удалось сбросить счётчик попыток входа", "err", err)
 	}
 	return sess, nil
 }

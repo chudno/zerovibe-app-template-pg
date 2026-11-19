@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	pgrepo "github.com/chudno/zerovibe/internal/repository/pgrepo"
 )
 
 // postForm — POST с form-encoded телом и опциональной cookie.
@@ -252,6 +255,44 @@ func TestLoginRateLimited_429(t *testing.T) {
 	}
 	if last.Header().Get("Retry-After") == "" {
 		t.Errorf("после превышения лимита ожидался заголовок Retry-After, тело: %s", last.Body.String())
+	}
+}
+
+func TestLoginSuccess_DoesNotSpendLimit(t *testing.T) {
+	h, auth, _ := buildStack(t, false)
+	if err := auth.Setup(context.Background(), "a@b.com", "password123", testSetupToken); err != nil {
+		t.Fatal(err)
+	}
+	// успешные входы счётчик не расходуют: восемь подряд, лимит 5
+	for i := 1; i <= 8; i++ {
+		rec := postForm(h, "/login", url.Values{"email": {"a@b.com"}, "password": {"password123"}}, nil)
+		if rec.Header().Get("Retry-After") != "" {
+			t.Fatalf("успешный вход №%d заблокирован лимитом, тело: %s", i, rec.Body.String())
+		}
+	}
+}
+
+func TestRateLimitRepo_Reset(t *testing.T) {
+	database := openTestPG(t)
+	repo := pgrepo.NewRateLimitRepo(database.SQL)
+	ctx := context.Background()
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		if _, _, err := repo.Allow(ctx, "k", 3, time.Hour, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ok, _, _ := repo.Allow(ctx, "k", 3, time.Hour, now); ok {
+		t.Fatal("четвёртая попытка должна быть заблокирована")
+	}
+	if err := repo.Reset(ctx, "k"); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	if ok, _, err := repo.Allow(ctx, "k", 3, time.Hour, now); err != nil || !ok {
+		t.Fatalf("после Reset попытка должна пройти: ok=%v err=%v", ok, err)
+	}
+	if err := repo.Reset(ctx, "нет-такого"); err != nil {
+		t.Fatalf("Reset без счётчика не должен быть ошибкой: %v", err)
 	}
 }
 

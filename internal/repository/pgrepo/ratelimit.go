@@ -71,3 +71,11 @@ func (r *RateLimitRepo) Allow(ctx context.Context, key string, limit int, window
 	}
 	return allowed, retryAfter, nil
 }
+
+// Reset удаляет счётчик ключа (например, после успешного входа). Нет счётчика — не ошибка.
+func (r *RateLimitRepo) Reset(ctx context.Context, key string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM rate_counters WHERE key = $1`, key); err != nil {
+		return fmt.Errorf("delete rate counter: %w", err)
+	}
+	return nil
+}
