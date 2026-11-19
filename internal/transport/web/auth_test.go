@@ -255,6 +255,20 @@ func TestLoginRateLimited_429(t *testing.T) {
 	}
 }
 
+func TestLoginSuccess_DoesNotSpendLimit(t *testing.T) {
+	h, auth, _ := buildStack(t, false)
+	if err := auth.Setup(context.Background(), "a@b.com", "password123", testSetupToken); err != nil {
+		t.Fatal(err)
+	}
+	// успешные входы счётчик не расходуют: восемь подряд, лимит 5
+	for i := 1; i <= 8; i++ {
+		rec := postForm(h, "/login", url.Values{"email": {"a@b.com"}, "password": {"password123"}}, nil)
+		if rec.Header().Get("Retry-After") != "" {
+			t.Fatalf("успешный вход №%d заблокирован лимитом, тело: %s", i, rec.Body.String())
+		}
+	}
+}
+
 func TestEmailVerification_BlocksLoginThenConfirms(t *testing.T) {
 	h, auth, settings := buildStackWithMailer(t, true) // allowSignup + перехват токенов
 	ctx := context.Background()

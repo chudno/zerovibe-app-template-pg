@@ -199,6 +199,16 @@ type fakeRateLimiter struct {
 	denyKeys map[string]bool // денаить конкретные ключи (точечно)
 	calls    int             // всего вызовов (обратная совместимость)
 	byKey    map[string]int  // вызовов на каждый ключ
+	limit    int             // если > 0 — реально применять лимит: попытка сверх него отклоняется
+	resets   int             // вызовов Reset
+	resetErr error           // ошибка, которую вернёт Reset
+}
+
+// Reset обнуляет счётчик ключа, как настоящее хранилище.
+func (f *fakeRateLimiter) Reset(_ context.Context, key string) error {
+	f.resets++
+	delete(f.byKey, key)
+	return f.resetErr
 }
 
 func (f *fakeRateLimiter) Allow(_ context.Context, key string, _ int, _ time.Duration, _ time.Time) (bool, time.Duration, error) {
@@ -207,7 +217,7 @@ func (f *fakeRateLimiter) Allow(_ context.Context, key string, _ int, _ time.Dur
 		f.byKey = map[string]int{}
 	}
 	f.byKey[key]++
-	if f.deny || f.denyKeys[key] {
+	if f.deny || f.denyKeys[key] || (f.limit > 0 && f.byKey[key] > f.limit) {
 		return false, 5 * time.Minute, nil
 	}
 	return true, 0, nil
@@ -389,6 +399,102 @@ func TestAuth_Login_RateLimited(t *testing.T) {
 	}
 	if re.RetryAfter <= 0 {
 		t.Error("ожидался положительный RetryAfter")
+	}
+}
+
+// registerForLimit заводит пользователя и включает реальный счёт попыток (лимит 5).
+func registerForLimit(t *testing.T) (*AuthService, *fakeRateLimiter) {
+	t.Helper()
+	svc, _, _, _, rl, _ := buildAuth(true)
+	if _, err := svc.Register(context.Background(), "a@b.com", "password123"); err != nil {
+		t.Fatal(err)
+	}
+	rl.limit = 5
+	return svc, rl
+}
+
+func TestAuth_Login_SuccessDoesNotSpendLimit(t *testing.T) {
+	svc, _ := registerForLimit(t)
+	for i := 1; i <= 8; i++ {
+		if _, err := svc.Login(context.Background(), "a@b.com", "password123", "k"); err != nil {
+			t.Fatalf("успешный вход №%d отклонён: %v", i, err)
+		}
+	}
+}
+
+func TestAuth_Login_BlockedAfterFailuresEvenWithRightPassword(t *testing.T) {
+	svc, rl := registerForLimit(t)
+	ctx := context.Background()
+	for i := 1; i <= 5; i++ {
+		if _, err := svc.Login(ctx, "a@b.com", "wrongpass1", "k"); !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("неудача №%d: ожидалась ErrInvalidCredentials, получено %v", i, err)
+		}
+	}
+	_, err := svc.Login(ctx, "a@b.com", "password123", "k")
+	var re domain.ErrRateLimited
+	if !errors.As(err, &re) {
+		t.Fatalf("после пяти неудач ожидалась ErrRateLimited даже с верным паролем, получено %v", err)
+	}
+	if re.RetryAfter <= 0 {
+		t.Error("ожидался положительный RetryAfter")
+	}
+	// блокировка не проверяет пароль и не сбрасывает счётчик
+	if rl.resets != 0 {
+		t.Errorf("во время блокировки Reset вызван %d раз, ожидалось 0", rl.resets)
+	}
+	if _, err := svc.Login(ctx, "a@b.com", "password123", "k"); !errors.As(err, &re) {
+		t.Fatalf("следующая попытка с верным паролем тоже должна быть ErrRateLimited, получено %v", err)
+	}
+}
+
+func TestAuth_Login_UnverifiedEmailKeepsAttemptCounted(t *testing.T) {
+	svc, f := buildAuthFull(map[string]bool{"allow_signup": true, "require_email_verification": true})
+	ctx := context.Background()
+	if _, err := svc.Register(ctx, "a@b.com", "password123"); err != nil {
+		t.Fatal(err)
+	}
+	const rateKey = "k"
+	if _, err := svc.Login(ctx, "a@b.com", "password123", rateKey); !errors.Is(err, domain.ErrEmailNotVerified) {
+		t.Fatalf("ожидалась ErrEmailNotVerified, получено %v", err)
+	}
+	if f.rl.resets != 0 {
+		t.Errorf("неподтверждённая почта не должна сбрасывать счётчик, Reset вызван %d раз", f.rl.resets)
+	}
+	if got := f.rl.byKey["login:"+rateKey]; got != 1 {
+		t.Errorf("попытка должна остаться засчитанной, счётчик %d", got)
+	}
+}
+
+func TestAuth_Login_SuccessResetsFailures(t *testing.T) {
+	svc, _ := registerForLimit(t)
+	ctx := context.Background()
+	for i := 0; i < 4; i++ {
+		_, _ = svc.Login(ctx, "a@b.com", "wrongpass1", "k")
+	}
+	if _, err := svc.Login(ctx, "a@b.com", "password123", "k"); err != nil {
+		t.Fatalf("пятая попытка с верным паролем должна пройти: %v", err)
+	}
+	// счётчик сброшен: снова пять неудач до блокировки
+	for i := 1; i <= 5; i++ {
+		if _, err := svc.Login(ctx, "a@b.com", "wrongpass1", "k"); !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("неудача №%d после сброса: ожидалась ErrInvalidCredentials, получено %v", i, err)
+		}
+	}
+	var re domain.ErrRateLimited
+	if _, err := svc.Login(ctx, "a@b.com", "wrongpass1", "k"); !errors.As(err, &re) {
+		t.Fatalf("шестая неудача после сброса должна быть заблокирована, получено %v", err)
+	}
+}
+
+func TestAuth_Login_ResetErrorDoesNotBreakLogin(t *testing.T) {
+	svc, rl := registerForLimit(t)
+	rl.resetErr = errors.New("db down")
+	s, err := svc.Login(context.Background(), "a@b.com", "password123", "k")
+	if err != nil || s.Token == "" {
+		t.Fatalf("сбой Reset не должен ломать вход: sess=%v err=%v", s, err)
+	}
+	if rl.resets != 1 {
+		t.Errorf("Reset должен быть вызван один раз, вызван %d", rl.resets)
 	}
 }
 
@@ -927,8 +1033,9 @@ func TestAuth_RateLimit_LoginAndForgot_DistinctKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	const rateKey = "a@b.com|1.2.3.4"
-	if _, err := svc.Login(ctx, "a@b.com", "password123", rateKey); err != nil {
-		t.Fatal(err)
+	// неудачный вход: успешный сбросил бы счётчик login
+	if _, err := svc.Login(ctx, "a@b.com", "wrongpass1", rateKey); !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("ожидалась ErrInvalidCredentials, получено %v", err)
 	}
 	if err := svc.RequestReset(ctx, "a@b.com", rateKey); err != nil {
 		t.Fatal(err)

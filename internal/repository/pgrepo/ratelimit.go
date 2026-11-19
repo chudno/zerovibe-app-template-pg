@@ -4,7 +4,6 @@ package pgrepo
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -19,55 +18,42 @@ func NewRateLimitRepo(db *sql.DB) *RateLimitRepo {
 	return &RateLimitRepo{db: db}
 }
 
+// allowSQL учитывает попытку одним атомарным запросом: строку ключа блокирует сам
+// INSERT … ON CONFLICT, поэтому параллельные попытки не теряют инкременты.
+// $1 — ключ, $2 — now, $3 — now-window: окно истекло, если window_start <= $3
+// (то же, что now.Sub(window_start) >= window).
+const allowSQL = `
+INSERT INTO rate_counters (key, window_start, count) VALUES ($1, $2, 1)
+ON CONFLICT (key) DO UPDATE SET
+    count = CASE WHEN rate_counters.window_start <= $3 THEN 1 ELSE rate_counters.count + 1 END,
+    window_start = CASE WHEN rate_counters.window_start <= $3 THEN $2 ELSE rate_counters.window_start END
+RETURNING count, window_start`
+
 // Allow учитывает попытку по ключу и сообщает, не превышен ли лимит.
-// Fixed-window: окно истекло — начинаем новое. Чтение и запись счётчика — в
-// одной serializable-транзакции, чтобы параллельные попытки не теряли инкременты.
+// Fixed-window: окно истекло — начинаем новое. Счётчик увеличивается одним запросом
+// (см. allowSQL), allowed и retryAfter считаются по возвращённым значениям.
 func (r *RateLimitRepo) Allow(ctx context.Context, key string, limit int, window time.Duration, now time.Time) (bool, time.Duration, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck // no-op после Commit
-
-	var start sql.NullTime
 	var count int64
-	err = tx.QueryRowContext(ctx,
-		`SELECT window_start, count FROM rate_counters WHERE key = $1`, key,
-	).Scan(&start, &count)
-
-	windowStart := now.UTC()
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		count = 0 // первой попытки ещё не было — заводим окно
-	case err != nil:
-		return false, 0, fmt.Errorf("select rate counter: %w", err)
-	default:
-		windowStart = fromNullTime(start)
-		if now.Sub(windowStart) >= window {
-			count = 0 // окно истекло — новое окно
-			windowStart = now.UTC()
-		}
+	var start time.Time
+	if err := r.db.QueryRowContext(ctx, allowSQL, key, now.UTC(), now.Add(-window).UTC()).Scan(&count, &start); err != nil {
+		return false, 0, fmt.Errorf("upsert rate counter: %w", err)
 	}
 
-	count++
 	allowed := count <= int64(limit)
 	var retryAfter time.Duration
 	if !allowed {
-		retryAfter = window - now.Sub(windowStart)
+		retryAfter = window - now.Sub(start)
 		if retryAfter < 0 {
 			retryAfter = 0
 		}
 	}
-
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO rate_counters (key, window_start, count) VALUES ($1, $2, $3)
-		 ON CONFLICT (key) DO UPDATE SET window_start = EXCLUDED.window_start, count = EXCLUDED.count`,
-		key, windowStart, count,
-	); err != nil {
-		return false, 0, fmt.Errorf("upsert rate counter: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return false, 0, fmt.Errorf("commit: %w", err)
-	}
 	return allowed, retryAfter, nil
+}
+
+// Reset удаляет счётчик ключа (например, после успешного входа). Нет счётчика — не ошибка.
+func (r *RateLimitRepo) Reset(ctx context.Context, key string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM rate_counters WHERE key = $1`, key); err != nil {
+		return fmt.Errorf("delete rate counter: %w", err)
+	}
+	return nil
 }
