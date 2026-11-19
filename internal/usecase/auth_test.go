@@ -423,7 +423,7 @@ func TestAuth_Login_SuccessDoesNotSpendLimit(t *testing.T) {
 }
 
 func TestAuth_Login_BlockedAfterFailuresEvenWithRightPassword(t *testing.T) {
-	svc, _ := registerForLimit(t)
+	svc, rl := registerForLimit(t)
 	ctx := context.Background()
 	for i := 1; i <= 5; i++ {
 		if _, err := svc.Login(ctx, "a@b.com", "wrongpass1", "k"); !errors.Is(err, domain.ErrInvalidCredentials) {
@@ -437,6 +437,31 @@ func TestAuth_Login_BlockedAfterFailuresEvenWithRightPassword(t *testing.T) {
 	}
 	if re.RetryAfter <= 0 {
 		t.Error("ожидался положительный RetryAfter")
+	}
+	// блокировка не проверяет пароль и не сбрасывает счётчик
+	if rl.resets != 0 {
+		t.Errorf("во время блокировки Reset вызван %d раз, ожидалось 0", rl.resets)
+	}
+	if _, err := svc.Login(ctx, "a@b.com", "password123", "k"); !errors.As(err, &re) {
+		t.Fatalf("следующая попытка с верным паролем тоже должна быть ErrRateLimited, получено %v", err)
+	}
+}
+
+func TestAuth_Login_UnverifiedEmailKeepsAttemptCounted(t *testing.T) {
+	svc, f := buildAuthFull(map[string]bool{"allow_signup": true, "require_email_verification": true})
+	ctx := context.Background()
+	if _, err := svc.Register(ctx, "a@b.com", "password123"); err != nil {
+		t.Fatal(err)
+	}
+	const rateKey = "k"
+	if _, err := svc.Login(ctx, "a@b.com", "password123", rateKey); !errors.Is(err, domain.ErrEmailNotVerified) {
+		t.Fatalf("ожидалась ErrEmailNotVerified, получено %v", err)
+	}
+	if f.rl.resets != 0 {
+		t.Errorf("неподтверждённая почта не должна сбрасывать счётчик, Reset вызван %d раз", f.rl.resets)
+	}
+	if got := f.rl.byKey["login:"+rateKey]; got != 1 {
+		t.Errorf("попытка должна остаться засчитанной, счётчик %d", got)
 	}
 }
 
