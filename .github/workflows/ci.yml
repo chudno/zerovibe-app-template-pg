@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      # Образ как в `make pg-up`. 5432 — тесты web и app, 55433 — тесты миграций.
+      pg:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+      pg-migrate:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["55433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: Тесты с базой
+        run: go test ./... -count=1 -v 2>&1 | tee test.log
+        shell: bash -o pipefail {0}
+      - name: Тесты с базой не должны пропускаться
+        run: |
+          if grep -E -- '--- SKIP' test.log; then
+            echo "::error::в CI тесты пропущены — база недоступна"; exit 1
+          fi
