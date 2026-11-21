@@ -180,13 +180,14 @@ func TestRegisterOpen_CreatesAndLogsIn(t *testing.T) {
 	if got == nil {
 		t.Fatalf("после открытой регистрации ожидался автологин (cookie), код %d, тело: %s", rec.Code, rec.Body.String())
 	}
-	// автологин действует: с cookie главная (/) открывается пользователю (200).
-	req := httptest.NewRequest("GET", "/", nil)
+	// автологин действует: «/» в шаблоне нет (404 до главной от агента), поэтому
+	// признак входа — страница входа с cookie отправляет на «/».
+	req := httptest.NewRequest("GET", "/login", nil)
 	req.AddCookie(got)
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req)
-	if rec2.Code != http.StatusOK {
-		t.Errorf("новый пользователь должен видеть главную, получен %d", rec2.Code)
+	if rec2.Code != http.StatusSeeOther || rec2.Header().Get("Location") != "/" {
+		t.Errorf("новый пользователь должен считаться вошедшим (/login → 303 на /), получен %d, Location %q", rec2.Code, rec2.Header().Get("Location"))
 	}
 }
 
