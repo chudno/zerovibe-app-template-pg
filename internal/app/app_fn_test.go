@@ -47,7 +47,8 @@ func TestFunctionShape(t *testing.T) {
 	}{
 		{`{"httpMethod":"GET","url":"/healthz"}`, 200},
 		{`{"httpMethod":"GET","url":"/login"}`, 200},
-		{`{"httpMethod":"GET","url":"/"}`, 200},
+		// «/» в шаблоне нет намеренно: 404 — признак для заглушки платформы.
+		{`{"httpMethod":"GET","url":"/"}`, 404},
 		{`{"httpMethod":"GET","url":"/nope-nope"}`, 404},
 	}
 	for _, tc := range cases {
